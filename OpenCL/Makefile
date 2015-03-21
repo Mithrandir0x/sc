@@ -2,7 +2,7 @@ HOME    = $(PWD)
 EXEC    = $(HOME)/main
 SRC_SCL = $(HOME)/simple-opencl
 CC      = g++
-SRC = main.c $(SRC_SCL)/simpleCL.c 
+SRC = $(wildcard *.c) $(SRC_SCL)/simpleCL.c 
 CFLAGS  = -Wall -Wextra -pedantic -O3
 
 UNAME := $(shell uname)
