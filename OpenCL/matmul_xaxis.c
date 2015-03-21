@@ -1,10 +1,16 @@
 #include "matmul.h"
 
-void MatrixMultiplicationXAxisWorkItems(sclHard hardware, char* module, char* kernel) {
+#define CPU 0
+#define GPU 1
+
+void MatrixMultiplicationXAxisWorkItems(sclHard* hardware, char* module, char* kernel) {
     SimpleKernelDefinition d;
 
-    const int matrixSize = 4;
     int result;
+    const int matrixSize = 4;
+
+    double ellapsedTime;
+    struct timespec start, end;
 
     /* Host data */
     float *A = NULL;     // Input array
@@ -44,11 +50,16 @@ void MatrixMultiplicationXAxisWorkItems(sclHard hardware, char* module, char* ke
     printf("\n");
 
     /* Initialize test matrix */
+    getTime(&start);
     calculateTestMatrix(A, B, Ctest, matrixSize);
+    getTime(&end);
     
     printf("Ctest:\n");
     printMatrix(Ctest, matrixSize);
     printf("\n");
+
+    ellapsedTime = getSeconds(&start, &end);
+    printf("CPU Time [%lf]\n", ellapsedTime);
 
     // Define an NDRange size of 16x16 Work Items
     d.globalSize[0] = matrixSize;
@@ -59,11 +70,12 @@ void MatrixMultiplicationXAxisWorkItems(sclHard hardware, char* module, char* ke
     d.localSize[1] = 1;
 
     /* Compile the kernel to the target device */
-    printf("Loading kernel\n");
-    getSoftware(hardware, &d);
+    printf("(OpenCL/GPU) Loading kernel\n");
+    getSoftware(hardware[GPU], &d);
 
     /* Execute the compiled kernel */
-    printf("Executing kernel\n");
+    printf("(OpenCL/GPU) Executing kernel\n");
+    getTime(&start);
     sclManageArgsLaunchKernel(
         d.hardware, d.software,
         d.globalSize, d.localSize,
@@ -72,14 +84,53 @@ void MatrixMultiplicationXAxisWorkItems(sclHard hardware, char* module, char* ke
         datasize, B,
         datasize, C,
         sizeof(int), &matrixSize);
+    getTime(&end);
     printf("\n");
 
-    printf("C:\n");
+    /* printf("C:\n");
     printMatrix(C, matrixSize);
-    printf("\n");
+    printf("\n"); */
+
+    ellapsedTime = getSeconds(&start, &end);
+    printf("(OpenCL/GPU) GPU Time [%lf]\n", ellapsedTime);
 
     /* Verify matrix multiplication */
-    printf("Verifying matrix multiplication\n");
+    printf("(OpenCL/GPU) Verifying matrix multiplication\n");
+    result = checkMatrixMultiplication(C, Ctest, MATRIX_SIZE, ALPHA);
+
+    if ( result ) {
+        printf("\n");
+    } else {
+        printf("All good\n");
+    }
+
+    /* Compile the kernel to the target device */
+    printf("(OpenCL/CPU) Loading kernel\n");
+    getSoftware(hardware[CPU], &d);
+
+    /* Execute the compiled kernel */
+    printf("(OpenCL/CPU) Executing kernel\n");
+    getTime(&start);
+    sclManageArgsLaunchKernel(
+        d.hardware, d.software,
+        d.globalSize, d.localSize,
+        "%r %r %w %a",
+        datasize, A,
+        datasize, B,
+        datasize, C,
+        sizeof(int), &matrixSize);
+    getTime(&end);
+    printf("\n");
+
+    /* printf("C:\n");
+    printMatrix(C, matrixSize);
+    printf("\n"); */
+
+    ellapsedTime = getSeconds(&start, &end);
+    printf("(OpenCL/CPU) CPU Time [%lf]\n", ellapsedTime);
+
+    /* Verify matrix multiplication */
+    printf("(OpenCL/CPU) Verifying matrix multiplication\n");
     result = checkMatrixMultiplication(C, Ctest, MATRIX_SIZE, ALPHA);
 
     if ( result ) {

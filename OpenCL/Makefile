@@ -28,7 +28,6 @@ all:
 	rm -f *.o
 
 amd:
-
 	$(CC) $(CFLAGS_AMD) -c $(SRC) $(INCL_AMD) 
 	$(CC) $(CFLAGS) *.o -o $(EXEC) $(LIBS_AMD)
 	rm -f *.o

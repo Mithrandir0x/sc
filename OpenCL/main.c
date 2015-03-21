@@ -69,7 +69,7 @@ int main() {
 
 	// ReadWrite(selected, "./kernel/read_write_kernel.cl", "ReadAndWriteKernel");
 	//MatrixMultiplicationSingleWorkItem(selected, "./kernel/matmul_singlewg_kernel.cl", "MatMulKernel");
-	MatrixMultiplicationXAxisWorkItems(selected, "./kernel/matmul_singlewg_kernel.cl", "MatMulKernel");
+	MatrixMultiplicationXAxisWorkItems(hardware, "./kernel/matmul_singlewg_kernel.cl", "MatMulKernel");
 
 	printf("\n");
 

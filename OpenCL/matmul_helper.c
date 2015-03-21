@@ -1,5 +1,10 @@
 #include "matmul.h"
 
+#ifdef __APPLE__
+#include <mach/clock.h>
+#include <mach/mach.h>
+#endif
+
 void getSoftware(sclHard hardware, SimpleKernelDefinition* def) {
     def->hardware = hardware;
     def->software = sclGetCLSoftware(
@@ -68,4 +73,25 @@ int checkMatrixMultiplication(float* C, float* Ctest, int elements, float alpha)
     }
 
     return result;
+}
+
+void getTime(timespec *ts) {
+    #ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+        clock_serv_t cclock;
+        mach_timespec_t mts;
+        host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+        clock_get_time(cclock, &mts);
+        mach_port_deallocate(mach_task_self(), cclock);
+        ts->tv_sec = mts.tv_sec;
+        ts->tv_nsec = mts.tv_nsec;
+    #else
+        clock_gettime(CLOCK_REALTIME, ts);
+    #endif
+}
+
+double getSeconds(timespec* start, timespec* end) {
+    double ellapsedTime;
+    ellapsedTime = end->tv_sec - start->tv_sec;
+    ellapsedTime += ( end->tv_nsec - start->tv_nsec ) / 1000000000.0;
+    return ellapsedTime;
 }
