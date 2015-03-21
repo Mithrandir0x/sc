@@ -357,7 +357,7 @@ void sclPrintDeviceNamePlatforms( sclHard* hardList, int found ) {
 		clGetPlatformInfo( hardList[i].platform, CL_PLATFORM_NAME, sizeof(cl_char)*1024, platformName, NULL );	
 		clGetPlatformInfo( hardList[i].platform, CL_PLATFORM_VENDOR, sizeof(cl_char)*1024, platformVendor, NULL );
 		clGetDeviceInfo( hardList[i].device, CL_DEVICE_NAME, sizeof(cl_char)*1024, deviceName, NULL );
-		fprintf( stdout, "\n Device %d \n Platform name: %s \n Vendor: %s \n Device name: %s", 
+		fprintf( stdout, "\n Device %d \n   Platform name: %s \n   Vendor: %s \n   Device name: %s", 
 				hardList[i].devNum, platformName, platformVendor, deviceName );	
 	}
 
