@@ -23,7 +23,12 @@ float doAPoint(int x, int y, __global float* A, __global float *B, const int siz
 }
 
 __kernel void MatMulKernel(__global float *A, __global float *B, __global float *C, int MS ) {
-    int x = get_local_id(0);
+    int localId = get_local_id(0);
+    int globalId = get_global_id(0);
+    int globalSizeX = get_global_size(0);
+
+    int x = ( globalSizeX * globalId ) + localId;
+
     for ( int y = 0 ; y < MS ; y++ ) {
         C[( y * MS ) + x] = doAPoint(x, y, A, B, MS, MS);
     }

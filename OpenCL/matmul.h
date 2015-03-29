@@ -26,6 +26,7 @@ typedef struct {
 /* KERNEL EXECUTORS */
 void MatrixMultiplicationSingleWorkItem(sclHard* hardware, char* module, char* kernel);
 void MatrixMultiplicationXAxisWorkItems(sclHard* hardware, char* module, char* kernel);
+void MatrixMultiplication(sclHard* hardware, char* module, char* kernel);
 
 /* MISCELLANEOUS */
 void getSoftware(sclHard hardware, SimpleKernelDefinition* def);
