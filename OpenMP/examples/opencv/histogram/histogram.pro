@@ -1,4 +1,4 @@
-TARGET = readimage
+TARGET = histogram
 TEMPLATE = app
 
 # OpenCV Dependencies
@@ -31,7 +31,7 @@ DISTFILES += \
     image.png
 
 SOURCES += \
-    read.cpp
+    histogram.cpp
 
 # Copy OpenCV dependencies to work with...
 copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_core$${LIB_OPENCV_VERSION}.dll    $${PWD}/../build-$${TARGET}-release/release/ $$escape_expand(\n\t)
