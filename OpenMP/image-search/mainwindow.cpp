@@ -24,7 +24,7 @@ void MainWindow::importImage()
 
     if ( !filePath.isNull() )
     {
-        cout << "filePath: " << filePath.toStdString() << endl;
+        cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
         database.importImage(filePath.toStdString().c_str());
     }
 }
