@@ -45,6 +45,7 @@ copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_objdetect$${LIB_OPENCV_V
 copyfiles.commands += cp $${PWD}/image1.jpg $${PWD}/../build-$${TARGET}-release/ $$escape_expand(\n\t)
 copyfiles.commands += cp $${PWD}/image2.jpg $${PWD}/../build-$${TARGET}-release/ $$escape_expand(\n\t)
 copyfiles.commands += cp $${PWD}/haarcascade_frontalface_alt.xml $${PWD}/../build-$${TARGET}-release/ $$escape_expand(\n\t)
+copyfiles.commands += cp $${PWD}/haarcascade_frontalface_alt.xml ./../$${DESTDIR_TARGET} $$escape_expand(\n\t)
 
 QMAKE_EXTRA_TARGETS += copyfiles
 POST_TARGETDEPS += copyfiles
