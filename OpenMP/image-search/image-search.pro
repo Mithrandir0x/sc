@@ -31,10 +31,12 @@ LIBS += -lopencv_objdetect$${LIB_OPENCV_VERSION}
 
 SOURCES  += main.cpp \
     mainwindow.cpp \
-    imagedb.cpp
+    imagedb.cpp \
+    imageentry.cpp
 
 HEADERS  += mainwindow.h \
-    imagedb.h
+    imagedb.h \
+    imageentry.h
 
 FORMS    += mainwindow.ui
 

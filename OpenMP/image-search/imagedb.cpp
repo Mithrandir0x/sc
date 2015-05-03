@@ -1,5 +1,9 @@
 #include <imagedb.h>
 
+#include <iostream>
+#include <iomanip>
+
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -10,7 +14,7 @@
 #define BUFFER_TXTFILE_LINE 200
 #define BUFFER_COPYFILE     1024 * 8
 
-using namespace cv;
+using namespace std;
 
 ImageDatabase::ImageDatabase()
 {
@@ -23,12 +27,37 @@ ImageDatabase::~ImageDatabase()
 
 void ImageDatabase::initialize()
 {
+    DIR *folder;
+    struct dirent *file;
+    char imageId[7];
+    int id;
+
     mkdir("./images");
     mkdir("./histogrames");
 
-    // @TODO Import existent image count
+    if ( ( folder = opendir("./histogrames") ) != NULL ) {
+        cout << " INFO: Loading current database..." << endl;
 
-    printf(" INFO: Image database size [%d]\n", imageCount);
+        while ( ( file = readdir(folder) ) != NULL ) {
+            if ( strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0 ) {
+                memcpy(imageId, file->d_name + 4, 6);
+                imageId[6] = '\0';
+                id = atoi(imageId);
+                //cout << " INFO: substr [" << imageId << "]" << endl;
+                //cout << " INFO: id [" << id << "]" << endl;
+
+                ImageEntry *imageEntry = importExistentHistogram(id);
+
+                imageCount++;
+                images.push_back(imageEntry);
+
+                cout << " INFO: Loaded histogram [" << file->d_name << "]" << endl;
+            }
+        }
+        closedir(folder);
+    }
+
+    cout << " INFO: Image database size [" << images.size() << "]" << endl;
 }
 
 int ImageDatabase::importFromTextFile(const char *filePath)
@@ -41,7 +70,7 @@ int ImageDatabase::importFromTextFile(const char *filePath)
 
     if ( imageFileList == 0 )
     {
-        printf("ERROR: File [%s] does not exist or not accessible.\n", filePath);
+        cout << "ERROR: File [" << filePath << "] does not exist or not accessible." << endl;
         return IMG_DB_ERROR_FILE_NOT_FOUND;
     }
 
@@ -55,8 +84,8 @@ int ImageDatabase::importFromTextFile(const char *filePath)
         importedImages++;
     }
 
-    printf(" INFO: Number of imported images [%d]\n", importedImages);
-    printf(" INFO: Image database size [%d]\n", imageCount);
+    cout << " INFO: Number of imported images [" << importedImages << "]" << endl;
+    cout << " INFO: Image database size [" << images.size() << "]" << endl;
     return 0;
 }
 
@@ -73,7 +102,7 @@ int ImageDatabase::importImage(const char *imageFilePath)
     originalFile = fopen(imageFilePath, "rb");
     if ( originalFile == 0 )
     {
-        printf("ERROR: Image file [%s] does not exist\n", imageFilePath);
+        cout << "ERROR: Image file [" << imageFilePath << "] does not exist" << endl;
         return IMG_DB_ERROR_FILE_NOT_FOUND;
     }
 
@@ -81,7 +110,7 @@ int ImageDatabase::importImage(const char *imageFilePath)
     destinationFile = fopen(str, "wb");
     if ( destinationFile == 0 )
     {
-        printf("ERROR: Could not create file [%s]\n", str);
+        cout << "ERROR: Could not create file [" << str << "]" << endl;
         return IMG_DB_ERROR_FILE_ERROR;
     }
 
@@ -92,16 +121,24 @@ int ImageDatabase::importImage(const char *imageFilePath)
     fclose(originalFile);
     fclose(destinationFile);
 
-    generateHistogram(currentId);
-
-    printf(" INFO: New image imported [%s] to [img_%06d]\n", imageFilePath, currentId);
+    ImageEntry *imageEntry = generateHistogram(currentId);
 
     imageCount++;
+    images.push_back(imageEntry);
+
+    cout << " INFO: New image imported ["
+         << imageFilePath
+         << "] to [img_"
+         << setfill('0') << setw(6)
+         << currentId
+         << "]" << endl;
+
+    cout << " INFO: Image database current size [" << images.size() << "]" << endl;
 
     return 0;
 }
 
-int ImageDatabase::generateHistogram(int id)
+ImageEntry* ImageDatabase::generateHistogram(int id)
 {
     Mat src_test, hsv_test;
     vector<Mat> hsv_planes;
@@ -131,28 +168,66 @@ int ImageDatabase::generateHistogram(int id)
     const float *v_ranges = { vrang };
 
     /// Histograms
-    Mat hist_h, hist_s, hist_v;
+    Mat *hist_h = new Mat();
+    Mat *hist_s = new Mat();
+    Mat *hist_v = new Mat();
 
     /// Calculate the histogram for the H image
-    calcHist( &hsv_planes[0], 1, 0, Mat(), hist_h, 1, &h_bins, &h_ranges, true, false );
-    normalize( hist_h, hist_h, 0, 1, NORM_MINMAX, -1, Mat() );
+    calcHist( &hsv_planes[0], 1, 0, Mat(), hist_h[0], 1, &h_bins, &h_ranges, true, false );
+    normalize( hist_h[0], hist_h[0], 0, 1, NORM_MINMAX, -1, Mat() );
 
-    calcHist( &hsv_planes[1], 1, 0, Mat(), hist_s, 1, &s_bins, &s_ranges, true, false );
-    normalize( hist_s, hist_s, 0, 1, NORM_MINMAX, -1, Mat() );
+    calcHist( &hsv_planes[1], 1, 0, Mat(), hist_s[0], 1, &s_bins, &s_ranges, true, false );
+    normalize( hist_s[0], hist_s[0], 0, 1, NORM_MINMAX, -1, Mat() );
 
-    calcHist( &hsv_planes[2], 1, 0, Mat(), hist_v, 1, &v_bins, &v_ranges, true, false );
-    normalize( hist_v, hist_v, 0, 1, NORM_MINMAX, -1, Mat() );
+    calcHist( &hsv_planes[2], 1, 0, Mat(), hist_v[0], 1, &v_bins, &v_ranges, true, false );
+    normalize( hist_v[0], hist_v[0], 0, 1, NORM_MINMAX, -1, Mat() );
 
     // Store histograms on disc
     sprintf(str, "./histogrames/img_%06d.xml", id);
     FileStorage fs(str, FileStorage::WRITE);
 
     fs << "imageName" << str;
-    fs << "hist_h" << hist_h;
-    fs << "hist_s" << hist_s;
-    fs << "hist_v" << hist_v;
+    fs << "hist_h" << hist_h[0];
+    fs << "hist_s" << hist_s[0];
+    fs << "hist_v" << hist_v[0];
 
     fs.release();
 
-    return 0;
+    // Store new ImageEntry
+    ImageEntry *imageEntry = new ImageEntry();
+    imageEntry->id = id;
+    imageEntry->h_hue = hist_h;
+    imageEntry->h_saturation = hist_s;
+    imageEntry->h_value = hist_v;
+
+    return imageEntry;
+}
+
+ImageEntry* ImageDatabase::importExistentHistogram(int id)
+{
+    // Histograms
+    Mat *hist_h = new Mat();
+    Mat *hist_s = new Mat();
+    Mat *hist_v = new Mat();
+
+    char str[120];
+    sprintf(str, "./histogrames/img_%06d.xml", id);
+    FileStorage fs(str, FileStorage::READ);
+
+    // This is friggin' stoopid. I can send a char* but I cannot receive
+    // a friggin' char*? Why oh why...
+    string fname;
+    fs["imageName"] >> fname;
+    fs["hist_h"] >> hist_h[0];
+    fs["hist_s"] >> hist_s[0];
+    fs["hist_v"] >> hist_v[0];
+
+    fs.release();
+
+    ImageEntry *imageEntry = new ImageEntry();
+    imageEntry->h_hue = hist_h;
+    imageEntry->h_saturation = hist_s;
+    imageEntry->h_value = hist_v;
+
+    return imageEntry;
 }
