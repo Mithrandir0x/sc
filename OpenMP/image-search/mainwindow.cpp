@@ -2,6 +2,8 @@
 #include <ui_mainwindow.h>
 
 #include <iostream>
+#include <vector>
+
 #include <QFileDialog>
 #include <QString>
 
@@ -14,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(this->ui->actionImportNewImage, SIGNAL(triggered()), this, SLOT(importImage()));
     connect(this->ui->actionImportImages, SIGNAL(triggered()), this, SLOT(importFromTextFile()));
     connect(this->ui->actionExit, SIGNAL(triggered()), this, SLOT(quit()));
+    connect(this->ui->actionSearchMostCommonImages, SIGNAL(triggered()), this, SLOT(searchImage()));
 
     database.initialize();
     updateLoadedImageListView();
@@ -46,10 +49,12 @@ void MainWindow::importFromTextFile()
 
 void MainWindow::updateLoadedImageListView()
 {
-    ImageEntry* imageEntry;
+    ImageEntry *imageEntry;
     ImageDatabaseIterator* iterator;
-    QListWidget* listWidget = this->ui->loadedImagesListView;
+    QTabWidget *tabWidget = this->ui->tabWidget;
+    QListWidget *listWidget = this->ui->loadedImagesListView;
 
+    tabWidget->setCurrentIndex(0);
     listWidget->clear();
 
     iterator = database.iterator();
@@ -65,6 +70,27 @@ void MainWindow::showCurrentDatabaseSize()
     char str[120];
     sprintf(str, "Current database size [%d]", database.size());
     this->ui->statusBar->showMessage(str);
+}
+
+void MainWindow::searchImage()
+{
+    QTabWidget *tabWidget = this->ui->tabWidget;
+    QListWidget *listWidget = this->ui->mostCommonImagesListView;
+    QString filePath = QFileDialog::getOpenFileName(this);
+
+    tabWidget->setCurrentIndex(1);
+
+    if ( !filePath.isNull() )
+    {
+        cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
+        vector<ImageEntry*> candidates = database.searchCommonImages(filePath.toStdString().c_str(), 2);
+
+        listWidget->clear();
+        for ( int i = 0, n = candidates.size() ; i < n ; i++ )
+        {
+            listWidget->addItem(new QListWidgetItem(QIcon(candidates[i]->imageFilePath), candidates[i]->name));
+        }
+    }
 }
 
 void MainWindow::quit()

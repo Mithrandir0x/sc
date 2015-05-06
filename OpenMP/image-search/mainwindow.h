@@ -25,6 +25,7 @@ public slots:
     void importImage();
     void importFromTextFile();
     void updateLoadedImageListView();
+    void searchImage();
     void quit();
 
 private:

@@ -233,6 +233,8 @@ ImageEntry* ImageDatabase::loadImage(const char *imageFilePath)
     strcpy(imageEntry->name, imageFilePath);
     realpath(imageFilePath, imageEntry->imageFilePath);
 
+    //cout << "Created image entry " << imageEntry << endl;
+
     return imageEntry;
 }
 
@@ -274,4 +276,50 @@ int ImageDatabase::next(ImageDatabaseIterator *iterator) {
 int ImageDatabase::size()
 {
     return images.size();
+}
+
+typedef struct SearchValueType {
+    double v;
+    ImageEntry *e;
+} SearchValue;
+
+static int compareSearchValues(const void *p, const void *q)
+{
+    SearchValue x = *(SearchValue*) p;
+    SearchValue y = *(SearchValue*) q;
+
+    if ( x.v == y.v )
+        return 0;
+    else
+        return ( x.v < y.v ) ? -1 : 1;
+}
+
+static void sort(SearchValue *array, size_t n)
+{
+    qsort(array, n, sizeof(SearchValue), compareSearchValues);
+}
+
+vector<ImageEntry*> ImageDatabase::searchCommonImages(const char *imageFilePath, int max)
+{
+    int i, n = images.size();
+    ImageEntry *imageEntry = loadImage(imageFilePath);
+    SearchValue compareValues[n];
+    vector<ImageEntry*> candidates;
+
+    for ( i = 0 ; i < n ; i++ )
+    {
+        compareValues[i].e = images[i];
+        compareValues[i].v = imageEntry->compare(images[i], CV_COMP_CORREL);
+        //cout << " INFO: Compare value [" << compareValues[i].v << "] with image " << *images[i] << endl;
+    }
+
+    sort(compareValues, n);
+
+    for ( i = 1 ; i <= max ; i++ )
+    {
+        cout << " INFO: Compare value [" << compareValues[n - i].v << "] with image " << *compareValues[n - i].e << endl;
+        candidates.push_back(compareValues[n - i].e);
+    }
+
+    return candidates;
 }

@@ -25,15 +25,11 @@ public:
     ~ImageDatabase();
 
     void initialize();
-    ImageEntry* importExistentHistogram(int id);
 
     int importFromTextFile(const char *filePath);
     int importImage(const char *imageFilePath);
 
-    void addImageEntry(ImageEntry *imageEntry);
-
-    ImageEntry* loadImage(const char *imageFilePath);
-    void saveHistogram(ImageEntry* imageEntry);
+    vector<ImageEntry*> searchCommonImages(const char *imageFilePath, int max);
 
     ImageDatabaseIterator* iterator();
     int next(ImageDatabaseIterator *iterator);
@@ -43,6 +39,13 @@ public:
 private:
     int imageCount;
     vector<ImageEntry*> images;
+
+    ImageEntry* importExistentHistogram(int id);
+
+    void addImageEntry(ImageEntry *imageEntry);
+
+    ImageEntry* loadImage(const char *imageFilePath);
+    void saveHistogram(ImageEntry* imageEntry);
 };
 
 #endif // IMAGEDATABASE_H
