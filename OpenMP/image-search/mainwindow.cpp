@@ -16,6 +16,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(this->ui->actionExit, SIGNAL(triggered()), this, SLOT(quit()));
 
     database.initialize();
+    updateLoadedImageListView();
+    showCurrentDatabaseSize();
 }
 
 void MainWindow::importImage()
@@ -26,6 +28,9 @@ void MainWindow::importImage()
     {
         cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
         database.importImage(filePath.toStdString().c_str());
+
+        updateLoadedImageListView();
+        showCurrentDatabaseSize();
     }
 }
 
@@ -37,6 +42,29 @@ void MainWindow::importFromTextFile()
     {
         cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
     }
+}
+
+void MainWindow::updateLoadedImageListView()
+{
+    ImageEntry* imageEntry;
+    ImageDatabaseIterator* iterator;
+    QListWidget* listWidget = this->ui->loadedImagesListView;
+
+    listWidget->clear();
+
+    iterator = database.iterator();
+    while ( database.next(iterator) )
+    {
+        imageEntry = iterator->current;
+        listWidget->addItem(new QListWidgetItem(QIcon(imageEntry->imageFilePath), imageEntry->name));
+    }
+}
+
+void MainWindow::showCurrentDatabaseSize()
+{
+    char str[120];
+    sprintf(str, "Current database size [%d]", database.size());
+    this->ui->statusBar->showMessage(str);
 }
 
 void MainWindow::quit()

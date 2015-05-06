@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 
+#include <limits.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,12 @@
 #define BUFFER_COPYFILE     1024 * 8
 
 using namespace std;
+
+// On Windows with MinGW, realpath is not supported, so
+// just fallback to the windows based implementation
+#if defined(WIN32)
+#define realpath(N,R) _fullpath((R),(N),_MAX_PATH)
+#endif
 
 ImageDatabase::ImageDatabase()
 {
@@ -47,11 +54,9 @@ void ImageDatabase::initialize()
                 //cout << " INFO: id [" << id << "]" << endl;
 
                 ImageEntry *imageEntry = importExistentHistogram(id);
+                addImageEntry(imageEntry);
 
-                imageCount++;
-                images.push_back(imageEntry);
-
-                cout << " INFO: Loaded histogram [" << file->d_name << "]" << endl;
+                //cout << " INFO: Loaded histogram [" << file->d_name << "]" << endl;
             }
         }
         closedir(folder);
@@ -121,10 +126,10 @@ int ImageDatabase::importImage(const char *imageFilePath)
     fclose(originalFile);
     fclose(destinationFile);
 
-    ImageEntry *imageEntry = generateHistogram(currentId);
-
-    imageCount++;
-    images.push_back(imageEntry);
+    ImageEntry *imageEntry = loadImage(str);
+    imageEntry->id = currentId;
+    saveHistogram(imageEntry);
+    addImageEntry(imageEntry);
 
     cout << " INFO: New image imported ["
          << imageFilePath
@@ -138,15 +143,52 @@ int ImageDatabase::importImage(const char *imageFilePath)
     return 0;
 }
 
-ImageEntry* ImageDatabase::generateHistogram(int id)
+ImageEntry* ImageDatabase::importExistentHistogram(int id)
+{
+    // Histograms
+    Mat *hist_h = new Mat();
+    Mat *hist_s = new Mat();
+    Mat *hist_v = new Mat();
+
+    char str[120];
+    sprintf(str, "./histogrames/img_%06d.xml", id);
+    FileStorage fs(str, FileStorage::READ);
+
+    // This is friggin' stoopid. I can send a char* but I cannot receive
+    // a friggin' char*? Why oh why...
+    string fname;
+    fs["imageName"] >> fname;
+    fs["hist_h"] >> hist_h[0];
+    fs["hist_s"] >> hist_s[0];
+    fs["hist_v"] >> hist_v[0];
+
+    fs.release();
+
+    ImageEntry *imageEntry = new ImageEntry();
+    imageEntry->id = id;
+    imageEntry->h_hue = hist_h;
+    imageEntry->h_saturation = hist_s;
+    imageEntry->h_value = hist_v;
+    strcpy(imageEntry->name, fname.c_str());
+    realpath(fname.c_str(), imageEntry->imageFilePath);
+
+    return imageEntry;
+}
+
+void ImageDatabase::addImageEntry(ImageEntry *imageEntry)
+{
+    cout << " INFO: Loading new image entry " << imageEntry[0] << endl;
+
+    imageCount++;
+    images.push_back(imageEntry);
+}
+
+ImageEntry* ImageDatabase::loadImage(const char *imageFilePath)
 {
     Mat src_test, hsv_test;
     vector<Mat> hsv_planes;
-    char str[120];
 
-    // Load image
-    sprintf(str, "./images/img_%06d.jpg", id);
-    src_test = imread(str, CV_LOAD_IMAGE_COLOR);
+    src_test = imread(imageFilePath, CV_LOAD_IMAGE_COLOR);
 
     /// Convert to HSV
     cvtColor(src_test, hsv_test, CV_BGR2HSV );
@@ -182,52 +224,54 @@ ImageEntry* ImageDatabase::generateHistogram(int id)
     calcHist( &hsv_planes[2], 1, 0, Mat(), hist_v[0], 1, &v_bins, &v_ranges, true, false );
     normalize( hist_v[0], hist_v[0], 0, 1, NORM_MINMAX, -1, Mat() );
 
-    // Store histograms on disc
-    sprintf(str, "./histogrames/img_%06d.xml", id);
-    FileStorage fs(str, FileStorage::WRITE);
-
-    fs << "imageName" << str;
-    fs << "hist_h" << hist_h[0];
-    fs << "hist_s" << hist_s[0];
-    fs << "hist_v" << hist_v[0];
-
-    fs.release();
-
-    // Store new ImageEntry
+    /// Create new ImageEntry
     ImageEntry *imageEntry = new ImageEntry();
-    imageEntry->id = id;
+    imageEntry->id = -1;
     imageEntry->h_hue = hist_h;
     imageEntry->h_saturation = hist_s;
     imageEntry->h_value = hist_v;
+    strcpy(imageEntry->name, imageFilePath);
+    realpath(imageFilePath, imageEntry->imageFilePath);
 
     return imageEntry;
 }
 
-ImageEntry* ImageDatabase::importExistentHistogram(int id)
+void ImageDatabase::saveHistogram(ImageEntry* imageEntry)
 {
-    // Histograms
-    Mat *hist_h = new Mat();
-    Mat *hist_s = new Mat();
-    Mat *hist_v = new Mat();
-
     char str[120];
-    sprintf(str, "./histogrames/img_%06d.xml", id);
-    FileStorage fs(str, FileStorage::READ);
 
-    // This is friggin' stoopid. I can send a char* but I cannot receive
-    // a friggin' char*? Why oh why...
-    string fname;
-    fs["imageName"] >> fname;
-    fs["hist_h"] >> hist_h[0];
-    fs["hist_s"] >> hist_s[0];
-    fs["hist_v"] >> hist_v[0];
+    sprintf(str, "./histogrames/img_%06d.xml", imageEntry->id);
+    FileStorage fs(str, FileStorage::WRITE);
+
+    fs << "imageName" << imageEntry->name;
+    fs << "hist_h" << imageEntry->h_hue[0];
+    fs << "hist_s" << imageEntry->h_saturation[0];
+    fs << "hist_v" << imageEntry->h_value[0];
 
     fs.release();
+}
 
-    ImageEntry *imageEntry = new ImageEntry();
-    imageEntry->h_hue = hist_h;
-    imageEntry->h_saturation = hist_s;
-    imageEntry->h_value = hist_v;
+ImageDatabaseIterator* ImageDatabase::iterator() {
+    ImageDatabaseIterator *iter;
+    iter = (ImageDatabaseIterator *) malloc(sizeof(ImageDatabaseIterator));
+    iter->i = -1;
+    iter->current = NULL;
+    return iter;
+}
 
-    return imageEntry;
+int ImageDatabase::next(ImageDatabaseIterator *iterator) {
+    iterator->i++;
+    if ( iterator->i < images.size() ) {
+        iterator->current = images[iterator->i];
+        return -1;
+    } else {
+        iterator->current = NULL;
+        free(iterator);
+        return 0;
+    }
+}
+
+int ImageDatabase::size()
+{
+    return images.size();
 }

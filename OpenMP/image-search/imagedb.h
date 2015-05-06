@@ -13,6 +13,11 @@
 using namespace cv;
 using namespace std;
 
+typedef struct {
+    unsigned int i;
+    ImageEntry *current;
+} ImageDatabaseIterator;
+
 class ImageDatabase
 {
 public:
@@ -20,10 +25,20 @@ public:
     ~ImageDatabase();
 
     void initialize();
+    ImageEntry* importExistentHistogram(int id);
+
     int importFromTextFile(const char *filePath);
     int importImage(const char *imageFilePath);
-    ImageEntry* importExistentHistogram(int id);
-    ImageEntry* generateHistogram(int id);
+
+    void addImageEntry(ImageEntry *imageEntry);
+
+    ImageEntry* loadImage(const char *imageFilePath);
+    void saveHistogram(ImageEntry* imageEntry);
+
+    ImageDatabaseIterator* iterator();
+    int next(ImageDatabaseIterator *iterator);
+
+    int size();
 
 private:
     int imageCount;

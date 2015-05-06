@@ -14,14 +14,17 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+    ImageDatabase database;
+
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
-    ImageDatabase database;
+    void showCurrentDatabaseSize();
 
 public slots:
     void importImage();
     void importFromTextFile();
+    void updateLoadedImageListView();
     void quit();
 
 private:
