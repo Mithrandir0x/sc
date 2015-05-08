@@ -43,7 +43,11 @@ FORMS    += mainwindow.ui
 # Copy OpenCV dependencies to work with...
 copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_core$${LIB_OPENCV_VERSION}.dll    $${PWD}/../build-$${TARGET}-release/release/ $$escape_expand(\n\t)
 copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_highgui$${LIB_OPENCV_VERSION}.dll $${PWD}/../build-$${TARGET}-release/release/ $$escape_expand(\n\t)
-copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_imgproc$${LIB_OPENCV_VERSION}.dll $${PWD}/../build-$${TARGET}-release/release/ $$escape_expand(\n\t)
+copyfiles.commands += cp $${OPENCV_MINGW_BIN}/libopencv_imgproc$${LIB_OPENCV_VERSION}.dll $${PWD}/../build-$${TARGET}-release/release/
 
 QMAKE_EXTRA_TARGETS += copyfiles
 POST_TARGETDEPS += copyfiles
+
+QMAKE_CXXFLAGS += -fopenmp
+QMAKE_LFLAGS   += -fopenmp
+

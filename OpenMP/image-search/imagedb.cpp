@@ -25,7 +25,7 @@ using namespace std;
 
 ImageDatabase::ImageDatabase()
 {
-    imageCount = 1;
+    //imageCount = 1;
 }
 
 ImageDatabase::~ImageDatabase()
@@ -37,10 +37,13 @@ void ImageDatabase::initialize()
     DIR *folder;
     struct dirent *file;
     char imageId[7];
-    int id;
+    unsigned int i;
+    vector<int> ids;
 
     mkdir("./images");
     mkdir("./histogrames");
+
+    cout << "images size [" << images.size() << "]" << endl;
 
     if ( ( folder = opendir("./histogrames") ) != NULL ) {
         cout << " INFO: Loading current database..." << endl;
@@ -49,17 +52,18 @@ void ImageDatabase::initialize()
             if ( strcmp(file->d_name, ".") != 0 && strcmp(file->d_name, "..") != 0 ) {
                 memcpy(imageId, file->d_name + 4, 6);
                 imageId[6] = '\0';
-                id = atoi(imageId);
-                //cout << " INFO: substr [" << imageId << "]" << endl;
-                //cout << " INFO: id [" << id << "]" << endl;
-
-                ImageEntry *imageEntry = importExistentHistogram(id);
-                addImageEntry(imageEntry);
-
-                //cout << " INFO: Loaded histogram [" << file->d_name << "]" << endl;
+                ids.push_back(atoi(imageId));
             }
         }
         closedir(folder);
+        images.resize(ids.size());
+
+        #pragma omp parallel for
+        for ( i = 0 ; i < ids.size() ; i++ )
+        {
+            images[ids[i]] = importExistentHistogram(ids[i]);
+            //cout << " INFO: Loaded [" << ids[i] << "] histogram " << *images[ids[i]] << endl;
+        }
     }
 
     cout << " INFO: Image database size [" << images.size() << "]" << endl;
@@ -69,7 +73,9 @@ int ImageDatabase::importFromTextFile(const char *filePath)
 {
     FILE *imageFileList;
     char imageFilePath[200];
-    int l, importedImages = 0;
+    //vector<char*> paths;
+    //int l, importedImages = 0;
+    int l;
 
     imageFileList = fopen(filePath, "r");
 
@@ -86,10 +92,10 @@ int ImageDatabase::importFromTextFile(const char *filePath)
 
         importImage(imageFilePath);
 
-        importedImages++;
+        //importedImages++;
     }
 
-    cout << " INFO: Number of imported images [" << importedImages << "]" << endl;
+    //cout << " INFO: Number of imported images [" << importedImages << "]" << endl;
     cout << " INFO: Image database size [" << images.size() << "]" << endl;
     return 0;
 }
@@ -102,7 +108,8 @@ int ImageDatabase::importImage(const char *imageFilePath)
     char buf[BUFFER_COPYFILE];
     size_t size;
 
-    int currentId = imageCount;
+    //int currentId = imageCount;
+    int currentId = images.size();
 
     originalFile = fopen(imageFilePath, "rb");
     if ( originalFile == 0 )
@@ -111,7 +118,7 @@ int ImageDatabase::importImage(const char *imageFilePath)
         return IMG_DB_ERROR_FILE_NOT_FOUND;
     }
 
-    sprintf(str, "./images/img_%06d.jpg", imageCount);
+    sprintf(str, "./images/img_%06d.jpg", currentId);
     destinationFile = fopen(str, "wb");
     if ( destinationFile == 0 )
     {
@@ -138,7 +145,7 @@ int ImageDatabase::importImage(const char *imageFilePath)
          << currentId
          << "]" << endl;
 
-    cout << " INFO: Image database current size [" << images.size() << "]" << endl;
+    //cout << " INFO: Image database current size [" << images.size() << "]" << endl;
 
     return 0;
 }
@@ -175,11 +182,11 @@ ImageEntry* ImageDatabase::importExistentHistogram(int id)
     return imageEntry;
 }
 
-void ImageDatabase::addImageEntry(ImageEntry *imageEntry)
+inline void ImageDatabase::addImageEntry(ImageEntry *imageEntry)
 {
-    cout << " INFO: Loading new image entry " << imageEntry[0] << endl;
+    //cout << " INFO: Loading new image entry " << imageEntry[0] << endl;
 
-    imageCount++;
+    //imageCount++;
     images.push_back(imageEntry);
 }
 
@@ -254,16 +261,21 @@ void ImageDatabase::saveHistogram(ImageEntry* imageEntry)
 }
 
 ImageDatabaseIterator* ImageDatabase::iterator() {
+    return iterator(images.size());
+}
+
+ImageDatabaseIterator* ImageDatabase::iterator(unsigned int max) {
     ImageDatabaseIterator *iter;
     iter = (ImageDatabaseIterator *) malloc(sizeof(ImageDatabaseIterator));
     iter->i = -1;
     iter->current = NULL;
+    iter->max = max < images.size() ? max : images.size();
     return iter;
 }
 
 int ImageDatabase::next(ImageDatabaseIterator *iterator) {
     iterator->i++;
-    if ( iterator->i < images.size() ) {
+    if ( iterator->i < images.size() && iterator->i < iterator->max ) {
         iterator->current = images[iterator->i];
         return -1;
     } else {
@@ -306,15 +318,28 @@ vector<ImageEntry*> ImageDatabase::searchCommonImages(const char *imageFilePath,
     SearchValue compareValues[n];
     vector<ImageEntry*> candidates;
 
-    for ( i = 0 ; i < n ; i++ )
+    cout << " INFO: image database size [" << n << "]" << endl;
+
+    #pragma omp parallel shared(n, imageEntry) private(i)
     {
-        compareValues[i].e = images[i];
-        compareValues[i].v = imageEntry->compare(images[i], CV_COMP_CORREL);
-        //cout << " INFO: Compare value [" << compareValues[i].v << "] with image " << *images[i] << endl;
+        #pragma omp for
+        for ( i = 0 ; i < n ; i++ )
+        {
+            compareValues[i].e = images[i];
+            // http://docs.opencv.org/modules/imgproc/doc/histograms.html?highlight=comparehist#comparehist
+            // 4. CV_COMP_BHATTACHARYYA
+            // 3. CV_COMP_INTERSECT
+            // 2. CV_COMP_CHISQR
+            // 1. CV_COMP_CORREL
+            compareValues[i].v = imageEntry->compare(images[i], CV_COMP_CORREL);
+            cout << " INFO: Compare value [" << compareValues[i].v << "] with image " << *images[i] << endl;
+        }
     }
 
+    cout << " INFO: Sorting values" << endl;
     sort(compareValues, n);
 
+    cout << " INFO: Selecting candidates" << endl;
     for ( i = 1 ; i <= max ; i++ )
     {
         cout << " INFO: Compare value [" << compareValues[n - i].v << "] with image " << *compareValues[n - i].e << endl;

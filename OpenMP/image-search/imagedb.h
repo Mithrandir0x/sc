@@ -16,6 +16,7 @@ using namespace std;
 typedef struct {
     unsigned int i;
     ImageEntry *current;
+    unsigned int max;
 } ImageDatabaseIterator;
 
 class ImageDatabase
@@ -32,12 +33,13 @@ public:
     vector<ImageEntry*> searchCommonImages(const char *imageFilePath, int max);
 
     ImageDatabaseIterator* iterator();
+    ImageDatabaseIterator* iterator(unsigned int max);
     int next(ImageDatabaseIterator *iterator);
 
     int size();
 
 private:
-    int imageCount;
+    //int imageCount;
     vector<ImageEntry*> images;
 
     ImageEntry* importExistentHistogram(int id);

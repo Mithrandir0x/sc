@@ -213,4 +213,4 @@ Makefile*
 **/build*
 
 # My thingies
-OpenMP/image-search/training
+OpenMP/image-search/training*

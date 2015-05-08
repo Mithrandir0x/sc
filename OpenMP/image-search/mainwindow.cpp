@@ -25,16 +25,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
 void MainWindow::importImage()
 {
-    QString filePath = QFileDialog::getOpenFileName(this);
+    QStringList filePaths = QFileDialog::getOpenFileNames(this);
 
-    if ( !filePath.isNull() )
+    foreach ( const QString &filePath, filePaths)
     {
         cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
         database.importImage(filePath.toStdString().c_str());
-
-        updateLoadedImageListView();
-        showCurrentDatabaseSize();
     }
+
+    updateLoadedImageListView();
+    showCurrentDatabaseSize();
 }
 
 void MainWindow::importFromTextFile()
@@ -44,7 +44,11 @@ void MainWindow::importFromTextFile()
     if ( !filePath.isNull() )
     {
         cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
+        database.importFromTextFile(filePath.toStdString().c_str());
     }
+
+    updateLoadedImageListView();
+    showCurrentDatabaseSize();
 }
 
 void MainWindow::updateLoadedImageListView()
@@ -57,7 +61,7 @@ void MainWindow::updateLoadedImageListView()
     tabWidget->setCurrentIndex(0);
     listWidget->clear();
 
-    iterator = database.iterator();
+    iterator = database.iterator(50);
     while ( database.next(iterator) )
     {
         imageEntry = iterator->current;
@@ -83,7 +87,7 @@ void MainWindow::searchImage()
     if ( !filePath.isNull() )
     {
         cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
-        vector<ImageEntry*> candidates = database.searchCommonImages(filePath.toStdString().c_str(), 2);
+        vector<ImageEntry*> candidates = database.searchCommonImages(filePath.toStdString().c_str(), 4);
 
         listWidget->clear();
         for ( int i = 0, n = candidates.size() ; i < n ; i++ )
