@@ -27,11 +27,7 @@ void MainWindow::importImage()
 {
     QStringList filePaths = QFileDialog::getOpenFileNames(this);
 
-    foreach ( const QString &filePath, filePaths)
-    {
-        cout << " INFO: filePath [" << filePath.toStdString() << "]" << endl;
-        database.importImage(filePath.toStdString().c_str());
-    }
+    database.importImages(&filePaths);
 
     updateLoadedImageListView();
     showCurrentDatabaseSize();

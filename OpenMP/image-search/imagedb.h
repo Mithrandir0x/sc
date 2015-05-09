@@ -5,7 +5,12 @@
 
 #include <vector>
 
+#include <QString>
+#include <QStringList>
+
 #include <opencv2/core/core.hpp>
+
+//#define ENABLE_DEBUG_LOG
 
 #define IMG_DB_ERROR_FILE_NOT_FOUND -1
 #define IMG_DB_ERROR_FILE_ERROR     -2
@@ -28,7 +33,8 @@ public:
     void initialize();
 
     int importFromTextFile(const char *filePath);
-    int importImage(const char *imageFilePath);
+    int importImages(QStringList *filePaths);
+    ImageEntry* importImage(const char *imageFilePath, int currentId);
 
     vector<ImageEntry*> searchCommonImages(const char *imageFilePath, int max);
 
@@ -39,12 +45,9 @@ public:
     int size();
 
 private:
-    //int imageCount;
     vector<ImageEntry*> images;
 
     ImageEntry* importExistentHistogram(int id);
-
-    void addImageEntry(ImageEntry *imageEntry);
 
     ImageEntry* loadImage(const char *imageFilePath);
     void saveHistogram(ImageEntry* imageEntry);

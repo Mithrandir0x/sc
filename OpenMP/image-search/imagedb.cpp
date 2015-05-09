@@ -1,13 +1,16 @@
 #include <imagedb.h>
 
+#include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <string>
 
 #include <limits.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -40,6 +43,11 @@ void ImageDatabase::initialize()
     unsigned int i;
     vector<int> ids;
 
+    struct timespec start, end;
+    double time;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     mkdir("./images");
     mkdir("./histogrames");
 
@@ -62,45 +70,94 @@ void ImageDatabase::initialize()
         for ( i = 0 ; i < ids.size() ; i++ )
         {
             images[ids[i]] = importExistentHistogram(ids[i]);
-            //cout << " INFO: Loaded [" << ids[i] << "] histogram " << *images[ids[i]] << endl;
+
+            #ifdef ENABLE_DEBUG_LOG
+            cout << "DEBUG: Loaded [" << ids[i] << "] histogram " << *images[ids[i]] << endl;
+            #endif
         }
     }
 
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    time = end.tv_sec - start.tv_sec;
+    time += ( end.tv_nsec - start.tv_nsec ) / 1000000000.0;
+
+    cout << " INFO: 'initialize' time [" << time << "]" << endl;
     cout << " INFO: Image database size [" << images.size() << "]" << endl;
 }
 
 int ImageDatabase::importFromTextFile(const char *filePath)
 {
-    FILE *imageFileList;
-    char imageFilePath[200];
-    //vector<char*> paths;
-    //int l, importedImages = 0;
-    int l;
+    ifstream imageFileList(filePath);
+    vector<string*> filePaths;
+    string *line = new string();
+    unsigned int i, k = images.size();
 
-    imageFileList = fopen(filePath, "r");
+    struct timespec start, end;
+    double time;
 
-    if ( imageFileList == 0 )
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    if ( imageFileList.is_open() )
+    {
+        while ( getline(imageFileList, *line) )
+        {
+            filePaths.push_back(line);
+            line = new string();
+        }
+
+        images.resize(images.size() + filePaths.size());
+
+        #pragma omp parallel for
+        for ( i = 0 ; i < filePaths.size() ; i++ )
+        {
+            images[k + i] = importImage(filePaths[i]->c_str(), k + i);
+        }
+    }
+    else
     {
         cout << "ERROR: File [" << filePath << "] does not exist or not accessible." << endl;
         return IMG_DB_ERROR_FILE_NOT_FOUND;
     }
 
-    while ( fgets(imageFilePath, BUFFER_TXTFILE_LINE, imageFileList) )
-    {
-        l = strlen(imageFilePath);
-        if ( imageFilePath[l - 1] == '\n' ) imageFilePath[l - 1] = '\0';
+    clock_gettime(CLOCK_MONOTONIC, &end);
 
-        importImage(imageFilePath);
+    time = end.tv_sec - start.tv_sec;
+    time += ( end.tv_nsec - start.tv_nsec ) / 1000000000.0;
 
-        //importedImages++;
-    }
-
-    //cout << " INFO: Number of imported images [" << importedImages << "]" << endl;
+    cout << " INFO: 'importFromTextFile' time [" << time << "]" << endl;
     cout << " INFO: Image database size [" << images.size() << "]" << endl;
     return 0;
 }
 
-int ImageDatabase::importImage(const char *imageFilePath)
+int ImageDatabase::importImages(QStringList *filePaths)
+{
+    int i, k = images.size();
+
+    struct timespec start, end;
+    double time;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    images.resize(images.size() + filePaths->size());
+
+    #pragma omp parallel for
+    for ( i = 0 ; i < filePaths->size() ; i++ )
+    {
+        images[k + i] = importImage(filePaths->at(i).toStdString().c_str(), k + i);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    time = end.tv_sec - start.tv_sec;
+    time += ( end.tv_nsec - start.tv_nsec ) / 1000000000.0;
+
+    cout << " INFO: 'importFromTextFile' time [" << time << "]" << endl;
+    cout << " INFO: Image database size [" << images.size() << "]" << endl;
+    return 0;
+}
+
+ImageEntry* ImageDatabase::importImage(const char *imageFilePath, int currentId)
 {
     FILE *originalFile;
     FILE *destinationFile;
@@ -108,14 +165,11 @@ int ImageDatabase::importImage(const char *imageFilePath)
     char buf[BUFFER_COPYFILE];
     size_t size;
 
-    //int currentId = imageCount;
-    int currentId = images.size();
-
     originalFile = fopen(imageFilePath, "rb");
     if ( originalFile == 0 )
     {
         cout << "ERROR: Image file [" << imageFilePath << "] does not exist" << endl;
-        return IMG_DB_ERROR_FILE_NOT_FOUND;
+        return NULL;
     }
 
     sprintf(str, "./images/img_%06d.jpg", currentId);
@@ -123,7 +177,7 @@ int ImageDatabase::importImage(const char *imageFilePath)
     if ( destinationFile == 0 )
     {
         cout << "ERROR: Could not create file [" << str << "]" << endl;
-        return IMG_DB_ERROR_FILE_ERROR;
+        return NULL;
     }
 
     while ( size = fread(buf, 1, BUFFER_COPYFILE, originalFile) ) {
@@ -136,18 +190,17 @@ int ImageDatabase::importImage(const char *imageFilePath)
     ImageEntry *imageEntry = loadImage(str);
     imageEntry->id = currentId;
     saveHistogram(imageEntry);
-    addImageEntry(imageEntry);
 
-    cout << " INFO: New image imported ["
+    #ifdef ENABLE_DEBUG_LOG
+    cout << " DEBUG: New image imported ["
          << imageFilePath
          << "] to [img_"
          << setfill('0') << setw(6)
          << currentId
          << "]" << endl;
+    #endif
 
-    //cout << " INFO: Image database current size [" << images.size() << "]" << endl;
-
-    return 0;
+    return imageEntry;
 }
 
 ImageEntry* ImageDatabase::importExistentHistogram(int id)
@@ -180,14 +233,6 @@ ImageEntry* ImageDatabase::importExistentHistogram(int id)
     realpath(fname.c_str(), imageEntry->imageFilePath);
 
     return imageEntry;
-}
-
-inline void ImageDatabase::addImageEntry(ImageEntry *imageEntry)
-{
-    //cout << " INFO: Loading new image entry " << imageEntry[0] << endl;
-
-    //imageCount++;
-    images.push_back(imageEntry);
 }
 
 ImageEntry* ImageDatabase::loadImage(const char *imageFilePath)
@@ -240,7 +285,9 @@ ImageEntry* ImageDatabase::loadImage(const char *imageFilePath)
     strcpy(imageEntry->name, imageFilePath);
     realpath(imageFilePath, imageEntry->imageFilePath);
 
-    //cout << "Created image entry " << imageEntry << endl;
+    #ifdef ENABLE_DEBUG_LOG
+    cout << "DEBUG: Created image entry " << imageEntry << endl;
+    #endif
 
     return imageEntry;
 }
@@ -318,7 +365,10 @@ vector<ImageEntry*> ImageDatabase::searchCommonImages(const char *imageFilePath,
     SearchValue compareValues[n];
     vector<ImageEntry*> candidates;
 
-    cout << " INFO: image database size [" << n << "]" << endl;
+    struct timespec start, end;
+    double time;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     #pragma omp parallel shared(n, imageEntry) private(i)
     {
@@ -332,19 +382,28 @@ vector<ImageEntry*> ImageDatabase::searchCommonImages(const char *imageFilePath,
             // 2. CV_COMP_CHISQR
             // 1. CV_COMP_CORREL
             compareValues[i].v = imageEntry->compare(images[i], CV_COMP_CORREL);
-            cout << " INFO: Compare value [" << compareValues[i].v << "] with image " << *images[i] << endl;
+
+            #ifdef ENABLE_DEBUG_LOG
+            cout << "DEBUG: Compare value [" << compareValues[i].v << "] with image " << *images[i] << endl;
+            #endif
         }
     }
 
     cout << " INFO: Sorting values" << endl;
     sort(compareValues, n);
 
-    cout << " INFO: Selecting candidates" << endl;
     for ( i = 1 ; i <= max ; i++ )
     {
         cout << " INFO: Compare value [" << compareValues[n - i].v << "] with image " << *compareValues[n - i].e << endl;
         candidates.push_back(compareValues[n - i].e);
     }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    time = end.tv_sec - start.tv_sec;
+    time += ( end.tv_nsec - start.tv_nsec ) / 1000000000.0;
+
+    cout << " INFO: 'searchCommonImages' time [" << time << "]" << endl;
 
     return candidates;
 }
