@@ -26,6 +26,12 @@ using namespace std;
 #define realpath(N,R) _fullpath((R),(N),_MAX_PATH)
 #endif
 
+// On Linux, mkdir requires 2 arguments, so we create with
+// the most secure way humankind has ever designed... Nope.
+#ifdef __linux__
+#define mkdir(x) mkdir(x, 0777)
+#endif
+
 ImageDatabase::ImageDatabase()
 {
     //imageCount = 1;
