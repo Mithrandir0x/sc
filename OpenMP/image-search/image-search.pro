@@ -56,6 +56,6 @@ unix {
     LIBS += `pkg-config opencv --libs`
 }
 
-#QMAKE_CXXFLAGS += -fopenmp
-#QMAKE_LFLAGS   += -fopenmp
+QMAKE_CXXFLAGS += -fopenmp
+QMAKE_LFLAGS   += -fopenmp
 
